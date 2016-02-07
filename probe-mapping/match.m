@@ -28,9 +28,14 @@ fclose(fid0);
 %linkPVID, refNodeID, nrefNodeID, length, functionalClass, directionOfTravel, speedCategory, 
 %fromRefSpeedLimit, toRefSpeedLimit, fromRefNumLanes, toRefNumLanes, multiDigitized, urban, 
 %timeZone, shapeInfo, curvatureInfo, slopeInfo
-fid1 = fopen(data(1).name, 'rt');  %the 't' is important!
+fid1 = fopen(data(1).name, 'rt'); 
 linkdata = ...
     textscan(fid1,'%f %f %f %f %f %c %f %f %f %f %f %c %c %f %s %s %s', ...
     'Delimiter',',','EndOfLine','\r\n','ReturnOnError',false','EmptyValue',0);
 fclose(fid1);
+
+lat = probepoints{1,4};
+long = probepoints{1,5};
+
+g = getGermany(lat,long);
 
