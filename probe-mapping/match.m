@@ -34,8 +34,25 @@ linkdata = ...
     'Delimiter',',','EndOfLine','\r\n','ReturnOnError',false','EmptyValue',0);
 fclose(fid1);
 
-lat = probepoints{1,4};
-long = probepoints{1,5};
+probelat = probepoints{1,4};
+probelong = probepoints{1,5};
+speed = probepoints{1,7};
+timeStamp = probepoints{1,2};
 
-g = getGermany(lat,long);
+%linkdata
+fromSpeedLimit = linkdata{1, 9};
+numLanes = linkdata{1,10};
+timeZone = linkdata{1,14};
+shapeInfo = linkdata{1,15};
+
+
+%apply map matching algorithm
+%1) trajectories-set(T): longitude, latitude, speed and time stamp
+%2) segment(r): longitude, latitude, road width, speed limit, two-lanes?
+%3) digital-map(G): a set of segments
+
+
+
+probeg = getGermany(probelat,probelong);
+%linkg
 
