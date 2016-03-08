@@ -158,14 +158,17 @@ for choice in range(len(latlon_list)):
 
         if therecount == 4:
             goodpix = []
+            goodlats = []
             avgxlist = []
             for g in range(len(gone)):
                 pixelcoords = output['Pixel Coordinate Endpoints'][g]
+                goodlat = output['Lat Lon Coordinate Endpoints'][g]
                 if gone[g] is False:
                     goodpix.append(pixelcoords)
-            for px in goodpix:
-                avgx = (px[0][0] + px[1][0])/2
-                avgxlist.append({'avgx': avgx, 'pixelcoords':px, 'latloncoords':output['Lat Lon Coordinate Endpoints'][g]})
+                    goodlats.append(goodlat)
+            for px in range(len(goodpix)):
+                avgx = (goodpix[px][0][0] + goodpix[px][1][0])/2
+                avgxlist.append({'avgx': avgx, 'pixelcoords':goodpix[px], 'latloncoords':goodlats[px]})
             sortedavgxs = sorted(avgxlist, key=lambda k: k['avgx'])
 
             rightmost = sortedavgxs[3]['pixelcoords']
@@ -213,8 +216,8 @@ for choice in range(len(latlon_list)):
             finalcoords['midl'].extend(midllatloncoords)
             finalcoords['midr'].extend(midrlatloncoords)
 
-            cv2.line(img,midrpixelcoords[0],midrpixelcoords[1],(0,0,255),2)
-            cv2.line(img,midlpixelcoords[0],midlpixelcoords[1],(0,0,255),2)
+            cv2.line(img,rightmost[0],rightmost[1],(255,255,255),2)
+            # cv2.line(img,midlpixelcoords[0],midlpixelcoords[1],(,0,255),2)
             cv2.imwrite('bigoutput/linesandcircleedges' + str(choice) + '.jpg',img)
             fourcount += 1
             break
