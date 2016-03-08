@@ -1,9 +1,9 @@
-# to call from command line: python edgedetection.py <lat1> <lon1> <lat2> <lon2> <path_to_image>
+# to call from command line: python edgedetection.py
 # writes to linesandcircleedges.jpg with the lines found and the end points of each line circled
 # prints a dictionary with lists of 2-element lists of tuple coords
 # you may need to take out this import to run on your machine
 import sys
-#sys.path.append('/usr/local/lib/python2.7/site-packages')
+sys.path.append('/usr/local/lib/python2.7/site-packages')
 
 import numpy as np
 import cv2
@@ -12,28 +12,26 @@ import csv
 from sys import argv
 from geopy.distance import vincenty
 
-# smaller longitude is to the left, bigger is to the right (in the eastern hemi)
-# bigger lat is up, smaller is down
-#lat1 = 46.395361
-#lon1 = 11.296116#southwest for horizontal
- #lat1 = 46.395259
-# lon1 = 11.296116 #southwest for vertical
-#lat2 = 46.395362
-#lon2 = 11.296171 #northeast
-
 latlon_list = []
 
 threshwronglist = []
 thresholds = []
 
+finalcoords = {}
+finalcoords['leftmost'] = []
+finalcoords['rightmost'] = []
+finalcoords['secondtoleft'] = []
+finalcoords['secondtoright'] = []
+finalcoords['midl'] = []
+finalcoords['midr'] = []
+
 with open("boundboxes.txt") as file1:
     reader = csv.reader(file1)
     for row in reader:
-        print row[0].split(' ')
+        # print row[0].split(' ')
         latlon_list.append(row[0].split(' '))
     wronglist = []
-    #print threshold
-    #thresholds.append(threshold)
+
 fourcount = 0
 for choice in range(len(latlon_list)):
     for threshold in np.arange(3.5,5.2,0.1):
@@ -67,6 +65,7 @@ for choice in range(len(latlon_list)):
         output = {}
         output['Pixel Coordinate Endpoints'] = []
         output['Lat Lon Coordinate Endpoints'] = []
+        output['Pixel Slopes'] = []
         for rho,theta in lines[0]:
             a = np.cos(theta)
             b = np.sin(theta)
@@ -124,12 +123,12 @@ for choice in range(len(latlon_list)):
                 latloncoords.append((lat, lon))
                 pixelcoords.append((x, y))
 
-            # assert len(pixelcoords) == 2, "somethings wrong! a line should only have two points crossing the edge of the image. and each pair of points per line hopefully isn't on the same edge"
             if len(pixelcoords) == 2:
+                if pixelcoords[0][0] > pixelcoords[1][0] :
+                    pixelcoords = [pixelcoords[1], pixelcoords[0]]
+                    latloncoords = [latloncoords[1], latloncoords[0]]
                 output['Pixel Coordinate Endpoints'].append(pixelcoords)
                 output['Lat Lon Coordinate Endpoints'].append(latloncoords)
-
-        # print len(output['Pixel Coordinate Endpoints'])
 
         badpairs = []
         #feet
@@ -153,30 +152,88 @@ for choice in range(len(latlon_list)):
             pixelcoords = output['Pixel Coordinate Endpoints'][g]
             if gone[g] is False:
                 therecount +=1
-                cv2.circle(img, pixelcoords[0], 10, (0,200,255))
+                cv2.circle(img, pixelcoords[0], 10, (0,0,255))
                 cv2.circle(img, pixelcoords[1], 10, (0,200,255))
                 cv2.line(img,pixelcoords[0],pixelcoords[1],(0,0,255),2)
 
-        # print "number of lines:", therecount
+        if therecount == 4:
+            goodpix = []
+            avgxlist = []
+            for g in range(len(gone)):
+                pixelcoords = output['Pixel Coordinate Endpoints'][g]
+                if gone[g] is False:
+                    goodpix.append(pixelcoords)
+            for px in goodpix:
+                avgx = (px[0][0] + px[1][0])/2
+                avgxlist.append({'avgx': avgx, 'pixelcoords':px, 'latloncoords':output['Lat Lon Coordinate Endpoints'][g]})
+            sortedavgxs = sorted(avgxlist, key=lambda k: k['avgx'])
 
-        if therecount != 4:
-            print threshold, therecount
-        else:
+            rightmost = sortedavgxs[3]['pixelcoords']
+            secondtoright = sortedavgxs[2]['pixelcoords']
+            midrpixelcoords = []
+            midrpixelcoords.append(((rightmost[0][0]-secondtoright[0][0])/2 + secondtoright[0][0], rightmost[0][1]))
+            midrpixelcoords.append(((rightmost[1][0]-secondtoright[1][0])/2 + secondtoright[1][0], rightmost[1][1]))
+
+            leftmost = sortedavgxs[0]['pixelcoords']
+            secondtoleft = sortedavgxs[1]['pixelcoords']
+            midlpixelcoords = []
+            midlpixelcoords.append(((secondtoleft[0][0]-leftmost[0][0])/2 + leftmost[0][0], leftmost[0][1]))
+            midlpixelcoords.append(((secondtoleft[1][0]-leftmost[1][0])/2 + leftmost[1][0], leftmost[1][1]))
+
+            midrlatloncoords = []
+            xpercentacross0 = midrpixelcoords[0][0] / float(width)
+            ypercentacross0 = midrpixelcoords[0][1] / float(height)
+            lon0 = lon1 + xpercentacross0 * londiff
+            lat0 = lat2 - ypercentacross0 * latdiff
+
+            xpercentacross1 = midrpixelcoords[1][0] / float(width)
+            ypercentacross1 = midrpixelcoords[1][1] / float(height)
+            lon1 = lon1 + xpercentacross1 * londiff
+            lat1 = lat2 - ypercentacross0 * latdiff
+
+            midrlatloncoords = [(lat0, lon0),(lat1, lon1)]
+
+            midllatloncoords = []
+            xpercentacross0 = midlpixelcoords[0][0] / float(width)
+            ypercentacross0 = midlpixelcoords[0][1] / float(height)
+            lon0 = lon1 + xpercentacross0 * londiff
+            lat0 = lat2 - ypercentacross0 * latdiff
+
+            xpercentacross1 = midlpixelcoords[1][0] / float(width)
+            ypercentacross1 = midlpixelcoords[1][1] / float(height)
+            lon1 = lon1 + xpercentacross1 * londiff
+            lat1 = lat2 - ypercentacross0 * latdiff
+
+            midllatloncoords = [(lat0, lon0),(lat1, lon1)]
+
+            finalcoords['leftmost'].extend(avgxlist[0]['latloncoords'])
+            finalcoords['rightmost'].extend(avgxlist[3]['latloncoords'])
+            finalcoords['secondtoleft'].extend(avgxlist[1]['latloncoords'])
+            finalcoords['secondtoright'].extend(avgxlist[2]['latloncoords'])
+            finalcoords['midl'].extend(midllatloncoords)
+            finalcoords['midr'].extend(midrlatloncoords)
+
+            cv2.line(img,midrpixelcoords[0],midrpixelcoords[1],(0,0,255),2)
+            cv2.line(img,midlpixelcoords[0],midlpixelcoords[1],(0,0,255),2)
             cv2.imwrite('bigoutput/linesandcircleedges' + str(choice) + '.jpg',img)
             fourcount += 1
             break
-            #print 'choice', choice
-            #print 'tcount', therecount
-        # cv2.imshow('Output',img)
-        # cv2.waitKey()
-        # print output
     threshwronglist.append(len(wronglist))
-    # print 'lenwronglist', len(wronglist)
 
-# print 'lenthreshwrong', len(threshwronglist)
-# print 'min', np.min(threshwronglist)
-print fourcount
-# for i in range(len(threshwronglist)):
-#     if threshwronglist[i] == min(threshwronglist):
-#         print 'thresh', thresholds[i]
-#         print 'numwrong', threshwronglist[i]
+with open('finaloutput.csv', 'wb') as outputfile:
+    writer = csv.writer(outputfile)
+    writer.writerow(['SBrightlanelat', 'SBrightlanelon', 'SBmiddlelanelat', 'SBmiddlelanelon', 'SBleftlanelat', 'SBleftlanelon', 'NBleftlanelat', 'NBleftlanelon', 'NBmiddlelanelat', 'NBmiddlelanelon', 'NBrightlanelat', 'NBrightlanelon'])
+    for i in range(len(finalcoords['leftmost'])):
+        lmlat = str(finalcoords['leftmost'][i][0])
+        lmlon = str(finalcoords['leftmost'][i][1])
+        rmlat = str(finalcoords['rightmost'][i][0])
+        rmlon = str(finalcoords['rightmost'][i][1])
+        scndllat = str(finalcoords['secondtoleft'][i][0])
+        scndllon = str(finalcoords['secondtoleft'][i][1])
+        scndrlat = str(finalcoords['secondtoright'][i][0])
+        scndrlon = str(finalcoords['secondtoright'][i][1])
+        midllat = str(finalcoords['midl'][i][0])
+        midllon = str(finalcoords['midl'][i][1])
+        midrlat = str(finalcoords['midr'][i][0])
+        midrlon = str(finalcoords['midr'][i][1])
+        writer.writerow([lmlat, lmlon, midllat, midllon, scndllat, scndllon, scndrlat, scndrlon, midrlat, midrlon, rmlat, rmlon])
